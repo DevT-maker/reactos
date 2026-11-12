@@ -1,6 +1,7 @@
 
 add_subdirectory(adns)
 add_subdirectory(cardlib)
+add_subdirectory(fnet)
 add_subdirectory(freetype)
 add_subdirectory(libmpg123)
 add_subdirectory(libsamplerate)
