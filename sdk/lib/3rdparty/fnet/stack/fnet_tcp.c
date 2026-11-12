@@ -2218,11 +2218,21 @@ static fnet_bool_t _fnet_tcp_add_inpbuf( fnet_socket_if_t *sk, fnet_netbuf_t *in
         if(insegment)
         {
             cb->tcpcb_sndack += insegment->total_length;
+            cb->tcpcb_rcvunacked += insegment->total_length;
             sk->receive_buffer.net_buf_chain = _fnet_netbuf_concat(sk->receive_buffer.net_buf_chain,
                                                insegment);
             sk->receive_buffer.count += insegment->total_length;
 
-            *ackparam |= FNET_TCP_AP_SEND_WITH_DELAY;
+            /* ReactOS: acknowledge at least every second full-sized segment (RFC 1122, 4.2.3.2),
+             * delaying every ACK by 200 ms limits the throughput to one window per 200 ms. */
+            if(cb->tcpcb_rcvunacked >= ((fnet_size_t)cb->tcpcb_rcvmss << 1))
+            {
+                *ackparam |= FNET_TCP_AP_SEND_IMMEDIATELLY;
+            }
+            else
+            {
+                *ackparam |= FNET_TCP_AP_SEND_WITH_DELAY;
+            }
         }
 
         return FNET_TRUE;
@@ -2364,7 +2374,9 @@ static fnet_bool_t _fnet_tcp_add_inpbuf( fnet_socket_if_t *sk, fnet_netbuf_t *in
                         cb->tcpcb_rcvchain = cb->tcpcb_rcvchain->next_chain;
 
                         /* Set the new size of the temporary buffer.*/
-                        cb->tcpcb_count -= cb->tcpcb_rcvchain->total_length;
+                        /* ReactOS: upstream used the size of the next segment here (wrong count,
+                         * NULL dereference when the deleted segment is the last one). */
+                        cb->tcpcb_count -= buf->total_length;
                         _fnet_netbuf_free_chain(buf);
                     }
                 }
@@ -3262,6 +3274,9 @@ static fnet_error_t _fnet_tcp_send_headseg( fnet_socket_if_t *sk, fnet_uint8_t f
 
     fnet_tcp_control_t *cb = (fnet_tcp_control_t *)sk->protocol_control;
 
+    /* ReactOS: this segment acknowledges all received data */
+    cb->tcpcb_rcvunacked = 0u;
+
     /* Get the sequence number.*/
     seq = cb->tcpcb_sndseq;
 
@@ -3375,6 +3390,9 @@ static fnet_error_t _fnet_tcp_send_dataseg( fnet_socket_if_t *sk, void *options,
     fnet_uint32_t           tmp;
     struct fnet_tcp_segment segment;
     fnet_tcp_control_t      *cb = (fnet_tcp_control_t *)sk->protocol_control;
+
+    /* ReactOS: this segment acknowledges all received data */
+    cb->tcpcb_rcvunacked = 0u;
 
     /* Receive the sequence number.*/
     seq = cb->tcpcb_sndseq;

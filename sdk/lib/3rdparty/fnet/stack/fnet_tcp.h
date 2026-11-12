@@ -107,7 +107,7 @@ extern struct fnet_prot_if fnet_tcp_prot_if;
 /************************************************************************
 *    Maximal window size
 *************************************************************************/
-#define FNET_TCP_MAXWIN             (12u*1024u)/* RFC:(0xffff)*/
+#define FNET_TCP_MAXWIN             (0xffffu) /* ReactOS: was 12KB (embedded targets), use the RFC maximum */
 
 /************************************************************************
 *    Maximal value of the sequence number
@@ -376,6 +376,7 @@ typedef struct
 
     /* Input buffer variables.*/
     fnet_size_t   tcpcb_newfreercvsize; /* Free size of the input buffer.*/
+    fnet_size_t   tcpcb_rcvunacked;     /* ReactOS: received bytes not acknowledged yet.*/
 
     /* Retransmission variables.*/
     fnet_index_t tcpcb_fastretrcounter;         /* Repeated acknowledgment counter (for fast retransmission).*/
